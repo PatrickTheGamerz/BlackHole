@@ -3,147 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relativistic Black Hole Simulator</title>
+    <title>Astrophysical Black Hole Simulator</title>
     
-    <!-- Tailwind CSS for UI -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Three.js for WebGL context and Shader Material -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: black; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', -apple-system, sans-serif; user-select: none; }
+        canvas { display: block; width: 100vw; height: 100vh; position: absolute; z-index: 1; }
         
-        /* Sci-Fi Glassmorphism UI */
-        .glass-panel {
-            background: rgba(10, 15, 30, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(100, 150, 255, 0.2);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        #ui-layer { position: absolute; z-index: 10; width: 100%; height: 100%; pointer-events: none; }
+        
+        .panel {
+            background: rgba(10, 10, 12, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
         }
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(100, 150, 255, 0.5); border-radius: 10px; }
+        .panel:hover {
+            background: rgba(15, 15, 18, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .data-readout {
+            font-family: 'SF Mono', 'Courier New', monospace;
+            color: #fff;
+            font-weight: 300;
+        }
 
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
             background: transparent;
+            height: 20px;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 1px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.3);
         }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
             height: 16px;
             width: 16px;
             border-radius: 50%;
-            background: #60a5fa;
+            background: #fff;
             cursor: pointer;
-            margin-top: -6px;
-            box-shadow: 0 0 10px rgba(96, 165, 250, 0.8);
+            -webkit-appearance: none;
+            margin-top: -8px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.8);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.4); }
     </style>
 </head>
-<body class="text-gray-200">
+<body>
 
-    <!-- 3D Canvas -->
     <div id="canvas-container"></div>
 
-    <!-- UI Overlay -->
-    <div class="absolute top-0 left-0 w-full h-full pointer-events-none p-4 md:p-8 flex flex-col justify-between">
-        
-        <!-- Header -->
-        <div class="flex justify-between items-start">
-            <div class="glass-panel p-6 rounded-2xl pointer-events-auto max-w-sm">
-                <h1 class="text-2xl font-bold text-blue-400 tracking-wider mb-1">SAGITTARIUS A*</h1>
-                <h2 class="text-xs uppercase text-gray-400 mb-4 tracking-widest">Relativistic Raymarching Engine</h2>
-                <p class="text-sm text-gray-300 leading-relaxed mb-4">
-                    This simulation calculates the actual paths of light rays (geodesics) bending through the warped spacetime around a black hole. Drag the screen to change your viewing angle.
-                </p>
-                
-                <div class="space-y-4 border-t border-blue-900/50 pt-4">
-                    <!-- Mass Control -->
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-blue-300">Black Hole Mass</span>
-                            <span id="mass-val" class="font-mono text-white">1.0</span>
-                        </div>
-                        <input type="range" id="mass-slider" min="0.1" max="2.0" step="0.05" value="1.0" class="pointer-events-auto">
-                    </div>
-
-                    <!-- Accretion Disk Temperature (Color) -->
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-blue-300">Disk Temperature</span>
-                            <span class="font-mono text-white">Heat</span>
-                        </div>
-                        <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.01" value="0.5" class="pointer-events-auto">
-                    </div>
-
-                    <!-- Orbit Speed -->
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-blue-300">Time Dilation (Sim Speed)</span>
-                            <span id="speed-val" class="font-mono text-white">1.0x</span>
-                        </div>
-                        <input type="range" id="speed-slider" min="0.0" max="3.0" step="0.1" value="1.0" class="pointer-events-auto">
-                    </div>
+    <div id="ui-layer" class="flex flex-col justify-end items-center pb-8 md:pb-12">
+        <div class="panel p-6 rounded-3xl pointer-events-auto w-[90%] max-w-4xl flex flex-col md:flex-row gap-8 justify-between items-center">
+            
+            <div class="w-full flex-1">
+                <div class="flex justify-between text-[10px] text-gray-400 mb-3 font-mono uppercase tracking-widest">
+                    <span>Mass (M_☉)</span>
+                    <span id="val-mass" class="data-readout">4.30 x 10^6</span>
                 </div>
+                <input type="range" id="slider-mass" min="1" max="10" step="0.1" value="4.3">
             </div>
 
-            <!-- Physics Legend -->
-            <div class="hidden lg:block glass-panel p-5 rounded-2xl pointer-events-auto max-w-xs text-sm">
-                <h3 class="text-blue-400 font-bold mb-3 uppercase tracking-wider text-xs border-b border-blue-900/50 pb-2">Observed Physics</h3>
-                <ul class="space-y-3 text-gray-300">
-                    <li>
-                        <strong class="text-white block">1. Gravitational Lensing</strong>
-                        Notice how the back of the disk bends UP and OVER the black hole. Light from behind is pulled over the top by extreme gravity.
-                    </li>
-                    <li>
-                        <strong class="text-white block">2. Doppler Beaming</strong>
-                        The side of the disk moving toward you (left) appears brighter and blue-shifted. The receding side (right) is dimmer and red-shifted.
-                    </li>
-                    <li>
-                        <strong class="text-white block">3. Photon Sphere</strong>
-                        The thin ring of light inside the dark circle. Here, light is trapped in a circular orbit forever.
-                    </li>
-                </ul>
+            <div class="w-full flex-1">
+                <div class="flex justify-between text-[10px] text-gray-400 mb-3 font-mono uppercase tracking-widest">
+                    <span>Accretion Rate (Ṁ)</span>
+                    <span id="val-acc" class="data-readout">0.85</span>
+                </div>
+                <input type="range" id="slider-acc" min="0.1" max="2.0" step="0.05" value="0.85">
             </div>
-        </div>
 
-        <!-- Footer / Interaction Hint -->
-        <div class="text-center pb-4 text-blue-200/50 text-sm tracking-widest uppercase">
-            Click and drag to orbit • Scroll to zoom
+            <div class="w-full flex-1">
+                <div class="flex justify-between text-[10px] text-gray-400 mb-3 font-mono uppercase tracking-widest">
+                    <span>Inclination Angle</span>
+                    <span id="val-inc" class="data-readout">82°</span>
+                </div>
+                <input type="range" id="slider-inc" min="0" max="90" step="1" value="82">
+            </div>
+
         </div>
     </div>
 
-    <!-- The WebGL Shader Magic -->
     <script>
-        // 1. Initialize Three.js Scene, Orthographic Camera (for full screen quad)
         const container = document.getElementById('canvas-container');
-        const renderer = new THREE.WebGLRenderer({ antialias: false }); // Anti-aliasing handled in shader
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio for performance
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-        // 2. Camera orbital mechanics (Simulating an observer in a spaceship)
-        let camRadius = 15.0;
-        let camTheta = Math.PI / 2.2; // Elevation angle
-        let camPhi = 0.0; // Azimuth angle
+        // Position camera dynamically far enough outside the rendering bounds
+        let camRadius = 35.0; 
+        let camTheta = Math.PI * (82 / 180);
+        let camPhi = -0.5;
 
-        // Variables for mouse interaction
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
 
@@ -151,45 +116,26 @@
         document.addEventListener('mouseup', () => isDragging = false);
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
-                const deltaMove = {
-                    x: e.offsetX - previousMousePosition.x,
-                    y: e.offsetY - previousMousePosition.y
-                };
-                
-                camPhi -= deltaMove.x * 0.005;
-                camTheta -= deltaMove.y * 0.005;
-                
-                // Clamp elevation to avoid singularities at poles
-                camTheta = Math.max(0.1, Math.min(Math.PI - 0.1, camTheta));
+                camPhi -= (e.movementX || e.offsetX - previousMousePosition.x) * 0.005;
+                camTheta -= (e.movementY || e.offsetY - previousMousePosition.y) * 0.005;
+                camTheta = Math.max(0.01, Math.min(Math.PI - 0.01, camTheta));
+                document.getElementById('slider-inc').value = Math.round((camTheta / Math.PI) * 180);
+                document.getElementById('val-inc').innerText = Math.round((camTheta / Math.PI) * 180) + "°";
             }
             previousMousePosition = { x: e.offsetX, y: e.offsetY };
         });
 
         document.addEventListener('wheel', (e) => {
             camRadius += e.deltaY * 0.02;
-            camRadius = Math.max(5.0, Math.min(40.0, camRadius)); // Limit zoom
+            camRadius = Math.max(15.0, Math.min(80.0, camRadius));
         });
 
-        // Touch support for mobile
-        document.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        });
-        document.addEventListener('touchend', () => isDragging = false);
-        document.addEventListener('touchmove', (e) => {
-            if (isDragging) {
-                const deltaMove = {
-                    x: e.touches[0].clientX - previousMousePosition.x,
-                    y: e.touches[0].clientY - previousMousePosition.y
-                };
-                camPhi -= deltaMove.x * 0.01;
-                camTheta -= deltaMove.y * 0.01;
-                camTheta = Math.max(0.1, Math.min(Math.PI - 0.1, camTheta));
-                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }
-        });
+        // Map UI Mass (1-10) to internal Shader Geometric Units (0.65 - 2.0)
+        // This guarantees the math stays stable and doesn't push the black hole outside the raymarch loop bounds
+        function getNormalizedMass(displayValue) {
+            return (displayValue / 10.0) * 1.5 + 0.5; 
+        }
 
-        // 3. UI Controls linking to Shader Uniforms
         const uniforms = {
             u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
             u_time: { value: 0.0 },
@@ -197,33 +143,27 @@
             u_camDir: { value: new THREE.Vector3() },
             u_camUp: { value: new THREE.Vector3() },
             u_camRight: { value: new THREE.Vector3() },
-            u_mass: { value: 1.0 },
-            u_diskTemp: { value: 0.5 }
+            u_mass: { value: getNormalizedMass(4.3) }, 
+            u_accretionRate: { value: 0.85 }
         };
 
-        document.getElementById('mass-slider').addEventListener('input', (e) => {
-            uniforms.u_mass.value = parseFloat(e.target.value);
-            document.getElementById('mass-val').innerText = parseFloat(e.target.value).toFixed(2);
+        document.getElementById('slider-mass').addEventListener('input', (e) => {
+            let val = parseFloat(e.target.value);
+            uniforms.u_mass.value = getNormalizedMass(val);
+            document.getElementById('val-mass').innerText = val.toFixed(2) + " x 10^6";
         });
 
-        document.getElementById('temp-slider').addEventListener('input', (e) => {
-            uniforms.u_diskTemp.value = parseFloat(e.target.value);
+        document.getElementById('slider-acc').addEventListener('input', (e) => {
+            uniforms.u_accretionRate.value = parseFloat(e.target.value);
+            document.getElementById('val-acc').innerText = parseFloat(e.target.value).toFixed(2);
         });
 
-        let simSpeed = 1.0;
-        document.getElementById('speed-slider').addEventListener('input', (e) => {
-            simSpeed = parseFloat(e.target.value);
-            document.getElementById('speed-val').innerText = simSpeed.toFixed(1) + "x";
+        document.getElementById('slider-inc').addEventListener('input', (e) => {
+            camTheta = (parseFloat(e.target.value) / 180) * Math.PI;
+            camTheta = Math.max(0.01, Math.min(Math.PI - 0.01, camTheta)); 
+            document.getElementById('val-inc').innerText = e.target.value + "°";
         });
 
-        // 4. The Core Raymarching Shader
-        const vertexShader = `
-            void main() {
-                gl_Position = vec4(position, 1.0);
-            }
-        `;
-
-        // GLSL Fragment Shader implementing General Relativity approximations
         const fragmentShader = `
             uniform vec2 u_resolution;
             uniform float u_time;
@@ -232,219 +172,215 @@
             uniform vec3 u_camUp;
             uniform vec3 u_camRight;
             uniform float u_mass;
-            uniform float u_diskTemp;
+            uniform float u_accretionRate;
 
-            // 3D Noise for Gas Swirls
-            float hash(float n) { return fract(sin(n) * 43758.5453); }
+            #define MAX_STEPS 600
+            
+            // Advanced Noise & Hash functions for Hyperrealism
+            float hash(float n) { return fract(sin(n) * 43758.5453123); }
+            float hash3(vec3 p) {
+                p = fract(p * vec3(12.9898, 78.233, 45.164));
+                p += dot(p, p.yxz + 19.19);
+                return fract((p.x + p.y) * p.z);
+            }
             float noise(vec3 x) {
-                vec3 p = floor(x);
-                vec3 f = fract(x);
+                vec3 p = floor(x); vec3 f = fract(x);
                 f = f * f * (3.0 - 2.0 * f);
                 float n = p.x + p.y * 57.0 + 113.0 * p.z;
-                return mix(mix(mix(hash(n + 0.0), hash(n + 1.0), f.x),
-                               mix(hash(n + 57.0), hash(n + 58.0), f.x), f.y),
-                           mix(mix(hash(n + 113.0), hash(n + 114.0), f.x),
-                               mix(hash(n + 170.0), hash(n + 171.0), f.x), f.y), f.z);
+                return mix(mix(mix(hash(n+0.0), hash(n+1.0),f.x), mix(hash(n+57.0), hash(n+58.0),f.x),f.y),
+                           mix(mix(hash(n+113.0),hash(n+114.0),f.x), mix(hash(n+170.0),hash(n+171.0),f.x),f.y),f.z);
             }
-            
-            // FBM (Fractal Brownian Motion) for volumetric texture
             float fbm(vec3 p) {
-                float f = 0.0;
-                f += 0.5000 * noise(p); p = p * 2.02;
-                f += 0.2500 * noise(p); p = p * 2.03;
-                f += 0.1250 * noise(p); p = p * 2.01;
-                f += 0.0625 * noise(p);
-                return f / 0.9375;
+                float f = 0.0; float w = 0.5;
+                for(int i = 0; i < 5; i++) {
+                    f += w * noise(p); p *= 2.05; w *= 0.5;
+                }
+                return f;
+            }
+
+            // Accurate Blackbody Spectrum
+            vec3 getBlackbodyColor(float temp) {
+                vec3 color = vec3(0.0);
+                temp /= 1000.0; 
+                if(temp <= 66.0) color.r = 255.0;
+                else color.r = 329.6987 * pow(temp - 60.0, -0.1332);
+                if(temp <= 66.0) color.g = 99.47 * log(temp) - 161.119;
+                else color.g = 288.12 * pow(temp - 60.0, -0.0755);
+                if(temp >= 66.0) color.b = 255.0;
+                else if(temp <= 19.0) color.b = 0.0;
+                else color.b = 138.51 * log(temp - 10.0) - 305.04;
+                return clamp(color / 255.0, 0.0, 1.0);
+            }
+
+            // High Fidelity Starfield & Galaxies
+            vec3 getDeepSpaceBackground(vec3 dir) {
+                // Nebula & Galactic Dust
+                vec3 up = vec3(0.0, 1.0, 0.0);
+                float galacticPlane = exp(-pow(abs(dot(dir, up)) * 8.0, 1.5));
+                
+                vec3 dustPos = dir * 15.0;
+                float dustNoise = fbm(dustPos) * fbm(dustPos * 0.5 + 5.0);
+                vec3 nebulaCol = vec3(0.05, 0.08, 0.15) * 1.5;
+                nebulaCol = mix(nebulaCol, vec3(0.15, 0.05, 0.08), fbm(dir * 5.0)); // subtle color variations
+                vec3 bgCol = nebulaCol * galacticPlane * dustNoise * 3.0;
+                
+                // Hyper-realistic Starfield Distribution
+                float s1 = hash3(dir * 150.0);
+                if(s1 > 0.98) bgCol += mix(vec3(1.0, 0.8, 0.6), vec3(0.7, 0.9, 1.0), hash3(dir * 151.0)) * pow((s1 - 0.98) * 50.0, 2.0);
+                
+                float s2 = hash3(dir * 350.0);
+                if(s2 > 0.995) bgCol += vec3(0.9, 0.95, 1.0) * pow((s2 - 0.995) * 200.0, 2.5);
+                
+                float s3 = hash3(dir * 600.0); // Micro stars
+                if(s3 > 0.99) bgCol += vec3(1.0) * pow((s3 - 0.99) * 100.0, 1.5) * 0.5 * galacticPlane;
+                
+                return bgCol;
             }
 
             void main() {
-                // Normalize pixel coordinates
                 vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
-
-                // Setup Ray
                 vec3 ro = u_camPos;
                 vec3 rd = normalize(u_camDir + uv.x * u_camRight + uv.y * u_camUp);
-
-                // Tracking variables
-                vec3 p = ro;
-                vec3 v = rd;
-                vec3 col = vec3(0.0);
+                vec3 p = ro; vec3 v = rd;
                 
-                float M = u_mass;
-                float Rs = 2.0 * M; // Schwarzschild Radius
-                float ISCO = 6.0 * M; // Innermost Stable Circular Orbit
+                float M = u_mass; 
+                float Rs = 2.0 * M; 
+                float R_isco = 3.0 * Rs;
+                float R_outer = R_isco + 18.0 * M;
+                float MAX_DIST = R_outer + 40.0 * M;
                 
-                bool escaped = false;
-                bool absorbed = false;
-                float totalDensity = 0.0;
+                vec3 totalEmission = vec3(0.0); 
+                float transmittance = 1.0; 
+                bool hitHorizon = false;
 
-                // Raymarching Loop
-                // 300 steps is a sweet spot for performance vs visual bending accuracy
-                for(int i = 0; i < 300; i++) {
+                for(int i = 0; i < MAX_STEPS; i++) {
                     float r = length(p);
+                    if(r < Rs * 1.01) { hitHorizon = true; break; }
+                    if(r > MAX_DIST || transmittance < 0.005) break;
                     
-                    // Stop if ray enters the event horizon
-                    if(r < Rs) { 
-                        absorbed = true; 
-                        break; 
-                    }
+                    // Adaptive Raymarch Steps (Ultra-fine near photon sphere for perfect lensing)
+                    float dt = max(0.008 * M, r * 0.012);
+                    if(r < 2.5 * Rs) dt *= 0.5; // Double precision near the intense curving region
                     
-                    // Stop if ray escapes far away
-                    if(r > 50.0) { 
-                        escaped = true; 
-                        break; 
-                    }
-
-                    // Adaptive step size: smaller steps near the black hole for accuracy
-                    float dt = max(0.02, r * 0.03);
-
-                    // ==========================================
-                    // GRAVITY - Bending spacetime
-                    // Photon geodesic approximation (inverse cube)
-                    // This creates the iconic folding of the disk over the top!
-                    // ==========================================
-                    v -= normalize(p) * (1.5 * Rs / (r * r * r)) * dt;
-                    v = normalize(v); // Keep light speed constant
-
-                    // ==========================================
-                    // ACCRETION DISK VOLUME RENDERING
-                    // ==========================================
-                    // Check if we are near the equatorial plane
-                    if(abs(p.y) < 0.4) {
-                        float dist = length(p.xz);
+                    // Gravity integration (Runge-Kutta 1st order / Euler)
+                    vec3 h = cross(p, v);
+                    vec3 accel = -1.5 * Rs * dot(h, h) / pow(r, 5.0) * p;
+                    v = normalize(v + accel * dt);
+                    
+                    float distFromCenter = length(p.xz);
+                    float verticalHeight = abs(p.y);
+                    
+                    // Flares out slightly less than before for a sharper, more realistic disk
+                    float diskThickness = 0.05 * M + distFromCenter * 0.03; 
+                    
+                    if(verticalHeight < diskThickness && distFromCenter > R_isco && distFromCenter < R_outer) {
                         
-                        // Disk only exists outside ISCO and fades out at distance
-                        if(dist > ISCO && dist < 25.0) {
+                        // Swirling plasma dynamics
+                        float angle = atan(p.z, p.x);
+                        float orbitalVel = sqrt(M / distFromCenter);
+                        float swirlOffset = angle - u_time * orbitalVel * 3.0;
+                        vec3 noisePos = vec3(cos(swirlOffset) * distFromCenter, p.y * 8.0, sin(swirlOffset) * distFromCenter) * 1.2 / M;
+                        
+                        // Structure of the disk
+                        float radialFalloff = smoothstep(R_isco, R_isco + 1.5 * M, distFromCenter) * exp(-(distFromCenter - R_isco) * 0.15 / M);
+                        float verticalFalloff = exp(-pow(verticalHeight / diskThickness, 2.5) * 6.0);
+                        
+                        // High-frequency magnetic flow lines
+                        float turbulence = fbm(noisePos) * 0.7 + fbm(noisePos * 3.0) * 0.3;
+                        float density = radialFalloff * verticalFalloff * turbulence * u_accretionRate * 1.2;
+                                      
+                        if(density > 0.005) {
+                            vec3 gasDir = normalize(vec3(-p.z, 0.0, p.x));
+                            float cosTheta = dot(v, gasDir);
                             
-                            // 1. Calculate Density Profile (thickest near ISCO, fading out)
-                            float falloff = smoothstep(25.0, 15.0, dist) * smoothstep(ISCO, ISCO * 1.5, dist);
-                            // Vertical falloff (thinner at edges)
-                            float hFalloff = 1.0 - abs(p.y) / 0.4;
+                            // True Relativistic Doppler Beaming
+                            float doppler = 1.0 / (sqrt(1.0 - orbitalVel*orbitalVel) * (1.0 - orbitalVel * cosTheta));
+                            float gravShift = sqrt(1.0 - Rs / distFromCenter);
                             
-                            // 2. Calculate Gas Swirling (FBM Noise rotated over time)
-                            float angle = atan(p.z, p.x);
-                            // Outer orbits are slower (Keplerian velocity approximation)
-                            float orbitalV = u_time * (5.0 / sqrt(dist)); 
+                            float physicalTemp = 22000.0 * pow(R_isco/distFromCenter, 0.75) * u_accretionRate;
+                            float obsTemp = physicalTemp * doppler * gravShift;
                             
-                            vec3 samplePos = vec3(cos(angle - orbitalV) * dist, 0.0, sin(angle - orbitalV) * dist);
-                            float gasNoise = fbm(samplePos * 1.5);
+                            // Intensity scaling according to Liouville's Theorem
+                            float intensity = pow(doppler * gravShift, 4.0);
+                            vec3 baseColor = getBlackbodyColor(min(60000.0, obsTemp));
                             
-                            float localDensity = falloff * hFalloff * gasNoise;
-
-                            if(localDensity > 0.01) {
-                                // 3. Relativistic Doppler Beaming
-                                // The gas is moving very fast. Vector is perpendicular to radius.
-                                vec3 gasVelocityDir = normalize(vec3(-p.z, 0.0, p.x));
-                                
-                                // How much is the gas moving towards or away from the light ray?
-                                float dopplerShift = dot(v, gasVelocityDir);
-                                
-                                // Relativistic beaming amplifies light moving towards observer
-                                float beaming = pow((1.0 + dopplerShift * 0.8), 4.0);
-
-                                // 4. Determine Colors based on Temperature Input
-                                // Cold disk: Orange/Red. Hot disk: Blue/White.
-                                vec3 hotColor = vec3(0.5, 0.8, 1.0); // Blueish
-                                vec3 midColor = vec3(1.0, 0.7, 0.3); // Orange/Gold
-                                vec3 coldColor = vec3(0.8, 0.1, 0.0); // Deep Red
-                                
-                                vec3 baseColor = mix(coldColor, midColor, u_diskTemp);
-                                baseColor = mix(baseColor, hotColor, u_diskTemp * u_diskTemp);
-                                
-                                // Doppler changes color temperature
-                                vec3 finalDiskCol = mix(baseColor * 0.5, baseColor * 2.0 + vec3(0.2,0.2,0.5), dopplerShift * 0.5 + 0.5);
-                                
-                                // Accumulate light
-                                col += finalDiskCol * localDensity * beaming * dt * (3.0 / dist);
-                            }
+                            float absorption = density * 2.5;
+                            float dTrans = exp(-absorption * dt);
+                            
+                            totalEmission += transmittance * baseColor * density * intensity * (1.0 - dTrans) / absorption * 4.0;
+                            transmittance *= dTrans;
                         }
                     }
-
-                    // Move light ray forward
                     p += v * dt;
                 }
-
-                // ==========================================
-                // BACKGROUND RENDERING (If ray escaped)
-                // ==========================================
-                if(escaped && col.x < 1.0 && col.y < 1.0) {
-                    // Procedural Milky Way band
-                    float galacticPlane = exp(-abs(v.y) * 8.0);
-                    vec3 bgCol = vec3(0.05, 0.08, 0.15) * galacticPlane * fbm(v * 10.0);
-                    
-                    // Procedural Stars
-                    float starHash = hash(dot(v, vec3(12.9898, 78.233, 45.164)));
-                    if(starHash > 0.998) {
-                        float starIntensity = (starHash - 0.998) * 500.0;
-                        // Twinkle effect
-                        starIntensity *= (0.5 + 0.5 * sin(u_time * 5.0 + starHash * 100.0));
-                        bgCol += vec3(1.0, 0.9, 0.8) * starIntensity;
-                    }
-
-                    // Add background to disk light (attenuated by disk opacity)
-                    col += bgCol * max(0.0, 1.0 - length(col) * 0.5);
-                }
-
-                // ACES Tone Mapping for cinematic HDR look
-                col = col * 1.5; // Exposure
-                col = (col * (2.51 * col + 0.03)) / (col * (2.43 * col + 0.59) + 0.14);
                 
-                // Slight blue-ish vignette
-                float distToCenter = length(uv);
-                col -= vec3(0.0, 0.05, 0.1) * distToCenter * 0.5;
+                if(!hitHorizon && transmittance > 0.005) {
+                    totalEmission += getDeepSpaceBackground(v) * transmittance;
+                }
+                
+                // --- HYPERREALISTIC CINEMATIC POST-PROCESSING ---
+                vec3 finalCol = totalEmission;
 
-                gl_FragColor = vec4(col, 1.0);
+                // Cinematic Glow/Bloom (multi-layered)
+                vec3 bloom1 = max(vec3(0.0), finalCol - 1.0);
+                vec3 bloom2 = max(vec3(0.0), finalCol - 2.5);
+                finalCol += pow(bloom1, vec3(1.5)) * 0.3 + pow(bloom2, vec3(2.0)) * 0.15;
+
+                // ACES Filmic Tone Mapping (Standard in Film/VFX)
+                finalCol *= 1.35; // Exposure calibration
+                float a = 2.51; float b = 0.03; float c = 2.43; float d = 0.59; float e = 0.14;
+                finalCol = (finalCol * (a * finalCol + b)) / (finalCol * (c * finalCol + d) + e);
+
+                // Subtle Anamorphic Flare approximation (Horizontal stretch based on brightness)
+                float flareIntensity = max(0.0, totalEmission.b - 1.5) * 0.02;
+                finalCol += vec3(0.1, 0.3, 0.8) * flareIntensity * exp(-abs(uv.y) * 20.0) * smoothstep(1.0, 0.0, abs(uv.x));
+
+                // High quality Vignette
+                float distToCenter = length(uv);
+                finalCol *= smoothstep(0.8, 0.2, distToCenter * distToCenter);
+
+                gl_FragColor = vec4(finalCol, 1.0);
             }
         `;
 
-        const geometry = new THREE.PlaneGeometry(2, 2);
-        const material = new THREE.ShaderMaterial({
-            vertexShader,
-            fragmentShader,
-            uniforms
-        });
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 2), 
+            new THREE.ShaderMaterial({ 
+                vertexShader: 'void main() { gl_Position = vec4(position, 1.0); }', 
+                fragmentShader, 
+                uniforms,
+                depthWrite: false,
+                depthTest: false
+            })
+        );
         scene.add(mesh);
-
-        // 5. Calculate Camera Vectors for Shader
-        const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
-
-            // Update Time
-            uniforms.u_time.value += clock.getDelta() * simSpeed;
-
-            // Convert Spherical Coordinates (camRadius, camTheta, camPhi) to Cartesian (x,y,z)
+            uniforms.u_time.value += 0.005;
+            
             const cx = camRadius * Math.sin(camTheta) * Math.cos(camPhi);
             const cy = camRadius * Math.cos(camTheta);
             const cz = camRadius * Math.sin(camTheta) * Math.sin(camPhi);
-
             const camPos = new THREE.Vector3(cx, cy, cz);
-            const target = new THREE.Vector3(0, 0, 0);
-
-            // Calculate directional vectors
-            const camDir = new THREE.Vector3().subVectors(target, camPos).normalize();
-            const worldUp = new THREE.Vector3(0, 1, 0);
-            const camRight = new THREE.Vector3().crossVectors(camDir, worldUp).normalize();
+            
+            const camDir = new THREE.Vector3().subVectors(new THREE.Vector3(0,0,0), camPos).normalize();
+            const camRight = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0,1,0)).normalize();
             const camUp = new THREE.Vector3().crossVectors(camRight, camDir).normalize();
-
-            // Feed to Shader
+            
             uniforms.u_camPos.value.copy(camPos);
             uniforms.u_camDir.value.copy(camDir);
             uniforms.u_camUp.value.copy(camUp);
             uniforms.u_camRight.value.copy(camRight);
-
+            
             renderer.render(scene, camera);
         }
-
-        // Handle Window Resize
+        
         window.addEventListener('resize', () => {
             renderer.setSize(window.innerWidth, window.innerHeight);
             uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // Start Loop
         animate();
     </script>
 </body>
